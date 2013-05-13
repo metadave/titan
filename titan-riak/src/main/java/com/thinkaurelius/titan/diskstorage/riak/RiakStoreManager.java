@@ -1,37 +1,77 @@
 package com.thinkaurelius.titan.diskstorage.riak;
 
+import com.basho.riak.client.IRiakClient;
+import com.basho.riak.client.RiakException;
+import com.basho.riak.client.RiakFactory;
+import com.thinkaurelius.titan.diskstorage.PermanentStorageException;
 import com.thinkaurelius.titan.diskstorage.StorageException;
 import com.thinkaurelius.titan.diskstorage.common.DistributedStoreManager;
 import com.thinkaurelius.titan.diskstorage.keycolumnvalue.*;
+import com.thinkaurelius.titan.diskstorage.keycolumnvalue.keyvalue.KeyValueStore;
+import com.thinkaurelius.titan.diskstorage.keycolumnvalue.keyvalue.KeyValueStoreManager;
+import com.thinkaurelius.titan.graphdb.configuration.TitanConstants;
 import org.apache.commons.configuration.Configuration;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.Map;
 
-public class RiakStoreManager  extends DistributedStoreManager implements KeyColumnValueStoreManager {
+public class RiakStoreManager  extends DistributedStoreManager implements KeyValueStoreManager {
 
     //private final StoreFeatures features;
     //private final FileStorageConfiguration storageConfig;
 
-    private static final int PORT_DEFAULT = 10018;
+    public static final String KEYSPACE_DEFAULT = "titan";
+    public static final String KEYSPACE_KEY = "keyspace";
+
+    private StoreFeatures features = null;
+    private static final int PORT_DEFAULT = 10017;
+    IRiakClient riakClient;
+
+    private Map<String, RiakKeyValueStore> stores = new HashMap<String, RiakKeyValueStore>();
 
     public RiakStoreManager(Configuration config) {
         super(config, PORT_DEFAULT);
     }
 
+
+
+    //    @Override
+//    public KeyColumnValueStore openDatabase(String name) throws StorageException {
+//        try {
+//            riakClient = RiakFactory.pbcClient();
+//            return new RiakKeyValueStore(riakClient, name);
+//        } catch (RiakException e) {
+//            e.printStackTrace();
+//        }
+//        return null;
+//    }
+
+
     @Override
-    public KeyColumnValueStore openDatabase(String name) throws StorageException {
+    public KeyValueStore openDatabase(String name) throws StorageException {
+        try {
+            if(stores.containsKey(name)) {
+                return stores.get(name);
+            } else {
+                System.out.println("Opening Riak [" + name + "]");
+                riakClient = RiakFactory.pbcClient("127.0.0.1",10017);
+
+                RiakKeyValueStore store = new RiakKeyValueStore(riakClient, name);
+                stores.put(name, store);
+                return store;
+            }
+
+        } catch (RiakException e) {
+            e.printStackTrace();
+        }
         return null;
     }
 
     @Override
-    public void mutateMany(Map<String, Map<ByteBuffer, KCVMutation>> mutations, StoreTransaction txh) throws StorageException {
-
-    }
-
-    @Override
-    public StoreTransaction beginTransaction(ConsistencyLevel consistencyLevel) throws StorageException {
-        return null;
+    public StoreTransaction beginTransaction(ConsistencyLevel level) throws StorageException {
+        // TODO: readconsistency, writeconsistency, etc
+        return new RiakTransaction(level);
     }
 
     @Override
@@ -41,21 +81,39 @@ public class RiakStoreManager  extends DistributedStoreManager implements KeyCol
 
     @Override
     public void clearStorage() throws StorageException {
-
+        System.out.println("CLEAR STORAGE");
     }
 
     @Override
     public StoreFeatures getFeatures() {
-        return null;
+        if (features == null) {
+            features = new StoreFeatures();
+            features.supportsScan = false;
+            features.supportsBatchMutation = false;
+            features.supportsTransactions = false;
+            // ??
+            features.supportsConsistentKeyOperations = true;
+            features.supportsLocking = false;
+            features.isDistributed = true;
+            features.isKeyOrdered = false;
+            features.hasLocalKeyPartition = false;
+        }
+        return features;
     }
+
+    public static final String TITAN_BACKEND_VERSION = "titan-version";
 
     @Override
     public String getConfigurationProperty(String key) throws StorageException {
-        return null;
+        if(key.equals(TITAN_BACKEND_VERSION)) {
+            return "0.4.0-SNAPSHOT";
+        }
+        System.err.println("Getting config property " + key);
+        return "";
     }
 
     @Override
     public void setConfigurationProperty(String key, String value) throws StorageException {
-
+        System.err.println("Setting config property " + key + ":" + value);
     }
 }

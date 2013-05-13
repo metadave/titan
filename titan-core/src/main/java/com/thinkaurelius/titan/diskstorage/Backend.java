@@ -356,6 +356,7 @@ public class Backend {
         put("hbase", "com.thinkaurelius.titan.diskstorage.hbase.HBaseStoreManager");
         put("embeddedcassandra", "com.thinkaurelius.titan.diskstorage.cassandra.embedded.CassandraEmbeddedStoreManager");
         put("inmemory","com.thinkaurelius.titan.diskstorage.keycolumnvalue.inmemory.InMemoryStoreManager");
+        put("riak", "com.thinkaurelius.titan.diskstorage.riak.RiakStoreManager");
     }};
 
     private static final Map<String, String> REGISTERED_INDEX_PROVIDERS = new HashMap<String, String>() {{
