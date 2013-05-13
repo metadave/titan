@@ -109,23 +109,15 @@ public class RiakKeyValueStore implements KeyValueStore {
         try {
             // whoa
             Iterable<String> keylist = bucket.keys();
-//            List<String> keylist =
-//                    bucket.fetchIndex(BinIndex.named(getIndexName()))
-//                                        .from(wrap(keyStart))
-//                                        .to(wrap(keyEnd))
-//                                        .execute();
-            //System.out.println("KEYLIST SIZE = " + keylist.size());
             for(String k : keylist) {
                 IRiakObject obj = bucket.fetch(k).execute();
+                if(obj == null) {
+                    return result;
+                }
                 boolean skip = false;
                 skip = !selector.include(unwrap(k));
                 if (!skip) {
-                    if(obj == null) {
-                        result.add(new KeyValueEntry(unwrap(k), null));
-                    } else {
-                        result.add(new KeyValueEntry(unwrap(k), ByteBuffer.wrap(obj.getValue())));
-                    }
-
+                    result.add(new KeyValueEntry(unwrap(k), null));
                 }
 
                 if (selector.reachedLimit()) {
