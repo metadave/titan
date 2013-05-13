@@ -7,17 +7,13 @@ import com.thinkaurelius.titan.diskstorage.common.AbstractStoreTransaction;
 import com.thinkaurelius.titan.diskstorage.keycolumnvalue.ConsistencyLevel;
 
 public class RiakTransaction extends AbstractStoreTransaction {
+
     public RiakTransaction(ConsistencyLevel level) {
-        super(ConsistencyLevel.KEY_CONSISTENT);
+        super(level);
     }
 
     @Override
     public synchronized void rollback() throws StorageException {
         System.out.println("CANT ROLLBACK");
-    }
-
-    @Override
-    public synchronized void commit() throws StorageException {
-        System.out.println("COMMIT");
     }
 }

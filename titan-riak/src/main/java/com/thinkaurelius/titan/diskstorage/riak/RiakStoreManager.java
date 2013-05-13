@@ -18,9 +18,6 @@ import java.util.Map;
 
 public class RiakStoreManager  extends DistributedStoreManager implements KeyValueStoreManager {
 
-    //private final StoreFeatures features;
-    //private final FileStorageConfiguration storageConfig;
-
     public static final String KEYSPACE_DEFAULT = "titan";
     public static final String KEYSPACE_KEY = "keyspace";
 
@@ -30,23 +27,9 @@ public class RiakStoreManager  extends DistributedStoreManager implements KeyVal
 
     private Map<String, RiakKeyValueStore> stores = new HashMap<String, RiakKeyValueStore>();
 
-    public RiakStoreManager(Configuration config) {
+    public RiakStoreManager(org.apache.commons.configuration.Configuration config) throws StorageException {
         super(config, PORT_DEFAULT);
     }
-
-
-
-    //    @Override
-//    public KeyColumnValueStore openDatabase(String name) throws StorageException {
-//        try {
-//            riakClient = RiakFactory.pbcClient();
-//            return new RiakKeyValueStore(riakClient, name);
-//        } catch (RiakException e) {
-//            e.printStackTrace();
-//        }
-//        return null;
-//    }
-
 
     @Override
     public KeyValueStore openDatabase(String name) throws StorageException {
@@ -56,12 +39,10 @@ public class RiakStoreManager  extends DistributedStoreManager implements KeyVal
             } else {
                 System.out.println("Opening Riak [" + name + "]");
                 riakClient = RiakFactory.pbcClient("127.0.0.1",10017);
-
                 RiakKeyValueStore store = new RiakKeyValueStore(riakClient, name);
                 stores.put(name, store);
                 return store;
             }
-
         } catch (RiakException e) {
             e.printStackTrace();
         }
@@ -70,13 +51,12 @@ public class RiakStoreManager  extends DistributedStoreManager implements KeyVal
 
     @Override
     public StoreTransaction beginTransaction(ConsistencyLevel level) throws StorageException {
-        // TODO: readconsistency, writeconsistency, etc
         return new RiakTransaction(level);
     }
 
     @Override
     public void close() throws StorageException {
-
+        System.out.println("CLOSE");
     }
 
     @Override
@@ -87,8 +67,9 @@ public class RiakStoreManager  extends DistributedStoreManager implements KeyVal
     @Override
     public StoreFeatures getFeatures() {
         if (features == null) {
+            System.out.println("New features");
             features = new StoreFeatures();
-            features.supportsScan = false;
+            features.supportsScan = true;
             features.supportsBatchMutation = false;
             features.supportsTransactions = false;
             // ??

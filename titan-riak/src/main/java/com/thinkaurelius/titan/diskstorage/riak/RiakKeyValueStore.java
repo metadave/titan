@@ -8,45 +8,44 @@ import com.basho.riak.client.bucket.Bucket;
 import com.basho.riak.client.builders.RiakObjectBuilder;
 import com.basho.riak.client.query.indexes.BinIndex;
 import com.thinkaurelius.titan.diskstorage.StorageException;
+import com.thinkaurelius.titan.diskstorage.common.DistributedStoreManager;
 import com.thinkaurelius.titan.diskstorage.keycolumnvalue.RecordIterator;
 import com.thinkaurelius.titan.diskstorage.keycolumnvalue.StoreTransaction;
 import com.thinkaurelius.titan.diskstorage.keycolumnvalue.keyvalue.KeySelector;
 import com.thinkaurelius.titan.diskstorage.keycolumnvalue.keyvalue.KeyValueEntry;
 import com.thinkaurelius.titan.diskstorage.keycolumnvalue.keyvalue.KeyValueStore;
 import com.thinkaurelius.titan.diskstorage.keycolumnvalue.keyvalue.LimitedSelector;
-import com.thinkaurelius.titan.diskstorage.util.ByteBufferUtil;
-
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
 
-    /*
-    mvn package -Dmaven.test.skip=true
+/*
+mvn package -Dmaven.test.skip=true
 
-    conf = new BaseConfiguration();
-    conf.setProperty("storage.backend","riak");
-    conf.setProperty("storage.hostname","127.0.0.1");
-    g = TitanFactory.open(conf);
-    juno = g.addVertex(null);
+conf = new BaseConfiguration();
+conf.setProperty("storage.backend","riak");
+conf.setProperty("storage.hostname","127.0.0.1");
+g = TitanFactory.open(conf);
+juno = g.addVertex(null);
 
-    juno.setProperty("name", "juno");
-    jupiter = g.addVertex(null);
-    jupiter.setProperty("name", "jupiter");
-    married = g.addEdge(null, juno, jupiter, "married");
+juno.setProperty("name", "juno");
+jupiter = g.addVertex(null);
+jupiter.setProperty("name", "jupiter");
+married = g.addEdge(null, juno, jupiter, "married");
 
-    g2 = GraphOfTheGodsFactory.load(g)
+g2 = GraphOfTheGodsFactory.load(g)
 
-     */
-
+ */
+//extends DistributedStoreManager implements KeyColumnValueStoreManager
 public class RiakKeyValueStore implements KeyValueStore {
     IRiakClient riak;
     String bucketName;
     Bucket bucket;
 
     public RiakKeyValueStore(IRiakClient riak, String bucket) {
+        super();
         // NO POOL YET, JUST SEEING IF IT WORKS!
         this.riak = riak;
         this.bucketName = bucket;
@@ -100,38 +99,33 @@ public class RiakKeyValueStore implements KeyValueStore {
     }
 
     private String getIndexName() {
-        return this.bucketName + "_bin";
+        return this.bucketName;
     }
 
     @Override
     public List<KeyValueEntry> getSlice(ByteBuffer keyStart, ByteBuffer keyEnd,
                                         KeySelector selector, StoreTransaction txh) throws StorageException {
-        System.out.println("getSlice/3 on " + this.bucketName);
-        //System.out.println("  Foo: " + ByteBufferUtil.toBitString(keyStart, " "));
-        //System.out.println("  Bar: " + ByteBufferUtil.toBitString(keyEnd, " "));
-
-        List<KeyValueEntry> result;
-        result = new ArrayList<KeyValueEntry>();
-
-//        byte[] colStartBytes = keyStart.hasRemaining() ? ByteBufferUtil.getArray(keyStart) : null;
-//        byte[] colEndBytes = keyEnd.hasRemaining() ? ByteBufferUtil.getArray(keyEnd) : null;
-
+        List<KeyValueEntry> result = new ArrayList<KeyValueEntry>();
         try {
-            List<String> keylist =
-                    bucket.fetchIndex(BinIndex.named(getIndexName()))
-                                    .from(wrap(keyStart))
-                                    .to(wrap(keyEnd))
-                                    .execute();
-            System.out.println("KEYLIST SIZE = " + keylist.size());
+            // whoa
+            Iterable<String> keylist = bucket.keys();
+//            List<String> keylist =
+//                    bucket.fetchIndex(BinIndex.named(getIndexName()))
+//                                        .from(wrap(keyStart))
+//                                        .to(wrap(keyEnd))
+//                                        .execute();
+            //System.out.println("KEYLIST SIZE = " + keylist.size());
             for(String k : keylist) {
-                //System.out.println(">>>>>>" + k);
                 IRiakObject obj = bucket.fetch(k).execute();
                 boolean skip = false;
-
                 skip = !selector.include(unwrap(k));
-
                 if (!skip) {
-                    result.add(new KeyValueEntry(unwrap(k), unwrap(obj.getValueAsString())));
+                    if(obj == null) {
+                        result.add(new KeyValueEntry(unwrap(k), null));
+                    } else {
+                        result.add(new KeyValueEntry(unwrap(k), ByteBuffer.wrap(obj.getValue())));
+                    }
+
                 }
 
                 if (selector.reachedLimit()) {
@@ -147,27 +141,6 @@ public class RiakKeyValueStore implements KeyValueStore {
 
 
 
-
-    public ByteBuffer unwrap(String s) {
-        try {
-            byte[] bytes = s.getBytes("UTF-8");
-            ByteBuffer result =  ByteBuffer.wrap(bytes, 0, bytes.length);
-            result.rewind();
-            return result;
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    private String wrap(ByteBuffer b) {
-        try {
-            return new String(b.array(), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
 
     @Override
     public void insert(ByteBuffer key, ByteBuffer value, StoreTransaction txh) throws StorageException {
@@ -247,5 +220,21 @@ public class RiakKeyValueStore implements KeyValueStore {
     @Override
     public void close() throws StorageException {
         System.err.println("close() Not implemented");
+    }
+
+    public ByteBuffer unwrap(String s) {
+        if(s == null){
+            ByteBuffer b = ByteBuffer.allocate(1);
+            b.rewind();
+        }
+        byte[] bytes = s.getBytes();
+        ByteBuffer result =  ByteBuffer.wrap(bytes, 0, bytes.length);
+        result.rewind();
+        return result;
+    }
+
+    private String wrap(ByteBuffer b) {
+        b.rewind();
+        return new String(b.array());
     }
 }
